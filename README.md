@@ -1,3 +1,1 @@
-# IDS_P
-# IDS_P
-# IDS_P
+FIT VUT Database project
