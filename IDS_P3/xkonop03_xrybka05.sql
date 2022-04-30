@@ -21,15 +21,14 @@ DROP TABLE PRISPIVA CASCADE CONSTRAINTS;
 
 DROP TABLE VYDANA_POLOZKA;
 
-
-
+ 
 
 
 --##################### SEKCE TVORBY TABULEK PRO 2. ODEVZDÁNÍ  ##########################
 
 CREATE TABLE PRODEJ 
 (
-    ID_prodej INT GENERATED AS IDENTITY NOT NULL PRIMARY KEY,
+    ID_prodej INT DEFAULT NULL PRIMARY KEY, --tento identifikátor se autoinkrementuje přes demonstrační trigger
     Datum DATE NOT NULL,
     ID_zamestnance INT NOT NULL
 );
@@ -199,6 +198,68 @@ ALTER TABLE POJISTOVNA
 ADD CONSTRAINT KodPojistovnyCheck CHECK (Kod_pojistovny > 99 );
 
 
+--##################### SEKCE TRIGGERů PRO 4. ODEVZDÁNÍ  ##########################
+-- TRIGGER 1: AUTOMATICKÉ GENEROVÁNÍ PRIMÁRNÍHO KLÍČE TABULKY
+DROP SEQUENCE "id_prodej_seq"; --pro opětovné spouštění
+CREATE SEQUENCE "id_prodej_seq"; --deklerace sekvence
+
+CREATE OR REPLACE TRIGGER "id_inkrement_trig" -- deklerace triggeru
+    BEFORE INSERT ON PRODEJ --pred vlozenim do prodej
+    FOR EACH ROW            --kazdy radek
+    WHEN(NEW.ID_prodej IS NULL) --kdyz je nový PK NULL
+BEGIN
+    :NEW.ID_prodej := "id_prodej_seq".nextval; --vygeneruj dalsi hodnotu pro z teto sekvence pro ID_prodej
+END;
+
+
+-- TRIGGER 2: Hlida vysi prispevku pojistovny na lecivo, jenz je limitovana samotnou cenou leciva
+CREATE OR REPLACE TRIGGER "prevyseni_prispevku"
+    BEFORE INSERT OR UPDATE OF Obchodni_nazev, Castku ON PRISPIVA
+    FOR EACH ROW
+DECLARE
+    limit NUMBER;
+BEGIN
+    --Zisk dat
+    SELECT Cena
+    INTO limit
+    FROM LECIVO
+    WHERE LECIVO.Obchodni_nazev = :NEW.Obchodni_nazev;
+    --Kontrola
+    IF (limit < :NEW.Castku)
+    THEN RAISE_APPLICATION_ERROR(-20201, 'Příspěvek nemůže být vyšší než cena léčiva', FALSE);
+    END IF;
+    EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20202,'Trigger pro převýšení příspěvku zachytil nevalidní insert');
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Trigger pro převýšení příspěvku zachytil nespecifikovanou vyjímku.');
+END;
+
+--DEMONSTRAČNÍ INSERT, JENŽ SELŽE S CHYBOU -20001, KTEROU GENERUJE TRIGGER preteceni_prispevku
+/*INSERT INTO POJISTOVNA
+(
+    Kod_pojistovny,
+    Kontakt
+)
+VALUES
+(
+    235,
+    'Sikovna pojistka'
+);
+INSERT INTO PRISPIVA
+(
+
+    Castku,
+    Obchodni_nazev,
+    Kod_pojistovny
+)
+VALUES
+(
+    6000, --ZDE TRIGGEREM VYHODI VYJIMKU - V DATABAZI MA TENTO LEK CENU 1999
+    (select Obchodni_nazev from LECIVO where (Obchodni_nazev = 'Osino')),
+    (select Kod_pojistovny from POJISTOVNA where (KONTAKT = 'Sikovna pojistka'))
+
+);*/
 
 
 
@@ -350,9 +411,6 @@ VALUES
     (select ID_receptu from PREDPIS where (Vydavajici_lekar = 'Dr. Zavor'))
 );
 
-
-
-
 --##################### SEKCE DOTAZŮ SELECT PRO 3. ODEVZDÁNÍ  ##########################
 
 
@@ -360,8 +418,8 @@ VALUES
 --Celkové tržy za den a počet jednotlivých prodejů (Zde 12. 12. 2022) - k prodejním stastikám
 --  SPLŇUJE:
 --  jeden z dotazů využívající klauzuli group by, zde s více agregačními funkcemi
-SELECT datum, SUM(prodejni_castka) as trzba_celkem, SUM(primy_prodej) as prima_trzba, SUM(platba_pojistovny) as trzba_od_pojistoven, COUNT(*) as pocet_prodeju  
-FROM 
+SELECT datum, SUM(prodejni_castka) as trzba_celkem, SUM(primy_prodej) as prima_trzba, SUM(platba_pojistovny) as trzba_od_pojistoven, COUNT(*) as pocet_prodeju
+FROM
     (
     SELECT datum, id_prodej, pocet_polozka*cena as prodejni_castka, pocet_polozka*cena-prispevek*pocet_polozka as primy_prodej, prispevek*pocet_polozka as platba_pojistovny
     FROM POLOZKA NATURAL JOIN BALENI NATURAL JOIN LECIVO NATURAL JOIN PRODEJ NATURAL JOIN VYDANA_POLOZKA
@@ -378,14 +436,14 @@ SELECT Id_objednavky as Objednavka_cislo, Datum_obj as Objednano_dne, Prijmeni a
 FROM OBJEDNAVKA O NATURAL JOIN ZAMESTANEC
 WHERE O.Datum_obj IS NOT NULL AND O.Datum_doruceni IS NULL AND EXISTS
     (
-        SELECT * 
+        SELECT *
         FROM BALENI
         WHERE ID_OBJEDNAVKY = O.ID_OBJEDNAVKY AND OBCHODNI_NAZEV = 'Osino'
     );
 
 
 --S3
---Které pojišťovny přispívají na léčivo a kolik (zde Osino) - pro určení 
+--Které pojišťovny přispívají na léčivo a kolik (zde Osino) - pro určení
 --  SPLŇUJE:
 --  jeden ze dvou dotazů využívajících spojení dvou tabulek
 SELECT DISTINCT Kod_pojistovny as pojistovna, Castku as prispiva
@@ -395,7 +453,7 @@ ORDER BY prispiva;
 
 
 
---S4 
+--S4
 --Jaká je průměrná částka příspěvku pojišťovny na léčiva - pro statistiky příspěvků pojišťoven
 --  SPLŇUJE:
 --  jedna z klauzulí group by s agregační funkcí
@@ -406,7 +464,7 @@ GROUP BY Obchodni_nazev;
 
 
 
---S5 
+--S5
 --Jaké volně dostupné léčiva se prodaly během daného dne a kolik balení to bylo, seřazeno od nejprodávanějšího - pro statistiky volně prodejných receptů
 --  SPLŇUJE:
 --  Použití IN a vnořený select
@@ -436,4 +494,48 @@ GROUP BY typ, kod_pojistovny;
 --  Spojení tří tabulek
 SELECT Id_baleni as Identifikator_kusu, Obchodni_nazev as lecivo, Jmeno_dodavatele
 FROM Baleni NATURAL JOIN Objednavka NATURAL JOIN Lecivo
-WHERE Id_baleni = 1
+WHERE Id_baleni = 1;
+
+SELECT * FROM POJISTOVNA;
+SELECT * FROM PRISPIVA;
+SELECT CENA from LECIVO;
+
+
+-- ################################### EXPLAIN PLAN + INDEX PRO 4. ODEVZDÁNÍ ##################################
+
+
+DROP INDEX index_polozka_id;
+DROP INDEX index_datum_sort;
+
+
+EXPLAIN PLAN FOR
+SELECT datum, SUM(prodejni_castka) as trzba_celkem, SUM(primy_prodej) as prima_trzba, SUM(platba_pojistovny) as trzba_od_pojistoven, COUNT(*) as pocet_prodeju
+FROM
+    (
+    SELECT datum, id_prodej, pocet_polozka*cena as prodejni_castka, pocet_polozka*cena-prispevek*pocet_polozka as primy_prodej, prispevek*pocet_polozka as platba_pojistovny
+    FROM POLOZKA NATURAL JOIN BALENI NATURAL JOIN LECIVO NATURAL JOIN PRODEJ NATURAL JOIN VYDANA_POLOZKA
+    WHERE datum = '12-DEC-22'
+    )
+GROUP BY datum
+ORDER BY datum;
+
+
+SELECT * FROM TABLE(dbms_xplan.display);
+
+CREATE UNIQUE INDEX index_polozka_id ON PRODEJ(ID_prodej);
+CREATE UNIQUE INDEX index_datum_sort on PRODEJ(Datum);
+
+
+
+EXPLAIN PLAN FOR
+SELECT datum, SUM(prodejni_castka) as trzba_celkem, SUM(primy_prodej) as prima_trzba, SUM(platba_pojistovny) as trzba_od_pojistoven, COUNT(*) as pocet_prodeju
+FROM
+    (
+    SELECT datum, id_prodej, pocet_polozka*cena as prodejni_castka, pocet_polozka*cena-prispevek*pocet_polozka as primy_prodej, prispevek*pocet_polozka as platba_pojistovny
+    FROM POLOZKA NATURAL JOIN BALENI NATURAL JOIN LECIVO NATURAL JOIN PRODEJ NATURAL JOIN VYDANA_POLOZKA
+    WHERE datum = '12-DEC-22'
+    )
+GROUP BY datum
+ORDER BY Datum;
+
+SELECT * FROM TABLE(dbms_xplan.display)
