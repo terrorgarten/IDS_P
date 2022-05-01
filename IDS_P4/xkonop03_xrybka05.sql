@@ -623,6 +623,7 @@ FROM materialized_view_baleni;
 DELETE
 FROM BALENI
 WHERE Obchodni_nazev = 'Ospen';
+
 --opět stejný výpis z mat. pohledu pred aktualizací
 SELECT Obchodni_nazev, Pocet_baleni
 FROM materialized_view_baleni;
