@@ -644,7 +644,7 @@ FROM materialized_view_baleni;
 
 -- Smaze zaznami BALENI s datem spotreby po zadanem datu
 -- spolu s nima zaznami z POLOZKY a VYDANE_POLOZKY ktere jsou s nimi spojeny
-CREATE OR REPLACE PROCEDURE vyhodit_prosle ( datum_atr IN BALENI.Epirace%TYPE )
+CREATE OR REPLACE PROCEDURE vypsat_prosle ( datum_atr IN BALENI.Epirace%TYPE )
 IS
 CURSOR curs_baleni is
     SELECT ID_baleni, ID_polozky as itemIDPolozka, Epirace FROM POLOZKA NATURAL JOIN BALENI;
@@ -658,10 +658,13 @@ BEGIN
 
         IF item.Epirace < datum_atr THEN
             TMP := item.itemIDPolozka;
-            DELETE FROM VYDANA_POLOZKA WHERE ID_polozky = TMP;
-            DELETE FROM POLOZKA WHERE ID_polozky = TMP;
+            DBMS_OUTPUT.PUT_LINE(item.ID_baleni);
+            --DELETE FROM VYDANA_POLOZKA WHERE ID_polozky = TMP;
+            --DELETE FROM POLOZKA WHERE ID_polozky = TMP;
         END IF;
     END LOOP;
+    /*
+    --Spatna prace s klici
     DECLARE
         CURSOR OBJ IS
         SELECT TVORI, ID_BALENI FROM OBJEDNAVKA LEFT OUTER JOIN BALENI ON BALENI.ID_OBJEDNAVKY = OBJEDNAVKA.TVORI;
@@ -696,21 +699,21 @@ BEGIN
         END LOOP;
     END;
 
-    DELETE FROM BALENI WHERE Epirace < datum_atr;
+    DELETE FROM BALENI WHERE Epirace < datum_atr;*/
 -- Bude tato vyjimka nekdy vyvolana?
 --EXCEPTION
 --WHEN NO_DATA_FOUND
 --THEN DELETE FROM BALENI WHERE Epirace < datum_atr;
-END vyhodit_prosle;
+END vypsat_prosle;
 
 --prikalad volani
 DECLARE
     a DATE;
     --:= DATE '4052-12-12' ;
 BEGIN
-    a := '12-12-1058';
+    a := '12-12-8958';
     --print "akf";
-    vyhodit_prosle(a);
+    vypsat_prosle(a);
 END;
 
 --Vyvola a zpracuje vyjimku
