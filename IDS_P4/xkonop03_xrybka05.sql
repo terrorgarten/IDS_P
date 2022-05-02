@@ -554,7 +554,6 @@ GRANT ALL ON PRISPIVA TO XRYBKA05;
 GRANT ALL ON PRODEJ TO XRYBKA05;
 GRANT ALL ON VYDANA_POLOZKA TO XRYBKA05;
 GRANT ALL ON ZAMESTANEC to XRYBKA05;
---TODO doplnit execute právo pro sekvence
 
 --Prava pro Matěje Konopíka (xkonop03) na vsechny tabulky databaze
 GRANT ALL ON BALENI TO XKONOP03;
@@ -567,7 +566,6 @@ GRANT ALL ON PRISPIVA TO XKONOP03;
 GRANT ALL ON PRODEJ TO XKONOP03;
 GRANT ALL ON VYDANA_POLOZKA TO XKONOP03;
 GRANT ALL ON ZAMESTANEC to XKONOP03;
---TODO doplnit execute právo pro sekvence
 
 
 --############################ PRIDANI MATERIALIZOVANEHO POHLEDU + DEMONSTRACE PRO ODEVZDANI 4 ############################
@@ -582,7 +580,7 @@ CREATE MATERIALIZED VIEW materialized_view_baleni
 AS --TYPO
 SELECT Obchodni_nazev, Pocet_baleni, Epirace, ID_BALENI
 FROM XKONOP03.BALENI;
-
+--pridani prav druhemu clenovi
 GRANT ALL ON materialized_view_baleni TO XRYBKA05;
 
 
@@ -636,94 +634,47 @@ SELECT Obchodni_nazev, Pocet_baleni
 FROM materialized_view_baleni;
 
 
-
 -- ################################### PROCEDURY PRO 4. ODEVZDÁNÍ ##################################
 
 -- Smaze zaznami BALENI s datem spotreby po zadanem datu
 -- spolu s nima zaznami z POLOZKY a VYDANE_POLOZKY ktere jsou s nimi spojeny
-CREATE OR REPLACE PROCEDURE vypsat_prosle ( datum_atr IN BALENI.Epirace%TYPE )
-IS
-CURSOR curs_baleni is
-    SELECT ID_baleni, ID_polozky as itemIDPolozka, Epirace FROM POLOZKA NATURAL JOIN BALENI;
---tmp POLOZKA.ID_polozky%TYPE;
+CREATE OR REPLACE PROCEDURE vypsat_prosle(datum_atr IN BALENI.Epirace%TYPE)
+    IS
+    CURSOR curs_baleni is
+        SELECT ID_baleni, ID_polozky as itemIDPolozka, Epirace
+        FROM POLOZKA
+                 NATURAL JOIN BALENI;
     TMP VYDANA_POLOZKA.ID_polozky%TYPE;
 BEGIN
-
-/* */
-    FOR item IN curs_baleni LOOP
-        --item.BALENI.Epirace < datum_atr
-
-        IF item.Epirace < datum_atr THEN
-            TMP := item.itemIDPolozka;
-            DBMS_OUTPUT.PUT_LINE(TMP);
-            --DELETE FROM VYDANA_POLOZKA WHERE ID_polozky = TMP;
-            --DELETE FROM POLOZKA WHERE ID_polozky = TMP;
-        END IF;
-    END LOOP;
-    /*
-    --Spatna prace s klici
-    DECLARE
-        CURSOR OBJ IS
-        SELECT TVORI, ID_BALENI FROM OBJEDNAVKA LEFT OUTER JOIN BALENI ON BALENI.ID_OBJEDNAVKY = OBJEDNAVKA.TVORI;
-    BEGIN
-        FOR i IN OBJ LOOP
-            IF ( i.ID_BALENI IS NULL)
-            THEN
-                DELETE FROM OBJEDNAVKA WHERE TVORI = i.TVORI;
+    FOR item IN curs_baleni
+        LOOP
+            IF item.Epirace < datum_atr THEN
+                TMP := item.itemIDPolozka;
+                DBMS_OUTPUT.PUT_LINE(TMP);
             END IF;
         END LOOP;
-    END;
-    DECLARE
-        CURSOR OBJ2 IS
-        SELECT  PRODEJ.ID_PRODEJ as ID_PRODEJ, ID_POLOZKY FROM PRODEJ LEFT JOIN POLOZKA ON PRODEJ.ID_PRODEJ = POLOZKA.ID_PRODEJ;
-    BEGIN
-        FOR J IN OBJ2 LOOP
-            IF ( J.ID_POLOZKY IS NULL)
-            THEN
-                DELETE FROM PRODEJ WHERE ID_PRODEJ = J.ID_PRODEJ;
-            END IF;
-        END LOOP;
-    END;
-    DECLARE
-        CURSOR OBJ3 IS
-        SELECT PREDPIS.ID_RECEPTU as ID_RECEPTU, ID_POLOZKY FROM PREDPIS LEFT JOIN VYDANA_POLOZKA ON PREDPIS.ID_RECEPTU = VYDANA_POLOZKA.ID_RECEPTU;
-    BEGIN
-        FOR K IN OBJ3 LOOP
-            IF ( K.ID_POLOZKY IS NULL)
-            THEN
-                DELETE FROM PREDPIS WHERE ID_RECEPTU = K.ID_RECEPTU;
-            END IF;
-        END LOOP;
-    END;
-
-    DELETE FROM BALENI WHERE Epirace < datum_atr;*/
--- Bude tato vyjimka nekdy vyvolana?
---EXCEPTION
---WHEN NO_DATA_FOUND
---THEN DELETE FROM BALENI WHERE Epirace < datum_atr;
 END vypsat_prosle;
 
 --prikalad volani
 DECLARE
     a DATE;
-    --:= DATE '4052-12-12' ;
 BEGIN
     a := to_date('05-05-2025', 'DD-MM-YYYY');
-    --print "akf";
     vypsat_prosle(a);
 END;
 
 --Vyvola a zpracuje vyjimku
 CREATE OR REPLACE PROCEDURE vyjimka
-IS
+    IS
     moje_vyjimka EXCEPTION;
 BEGIN
-DBMS_OUTPUT.PUT_LINE('Je li vyvolana vyjimka, tak ');
-RAISE moje_vyjimka ;
-DBMS_OUTPUT.PUT_LINE( 'se nic nestane.');
+    DBMS_OUTPUT.PUT_LINE('Je li vyvolana vyjimka, tak ');
+    RAISE moje_vyjimka;
+--dead code
+    DBMS_OUTPUT.PUT_LINE('se nic nestane.');
 EXCEPTION
-WHEN moje_vyjimka THEN
-DBMS_OUTPUT.PUT_LINE('je zpracovana.');
+    WHEN moje_vyjimka THEN
+        DBMS_OUTPUT.PUT_LINE('je zpracovana.');
 END;
 
 --priklad volani
@@ -731,5 +682,13 @@ DECLARE
 BEGIN
     vyjimka();
 END;
+
+
+--dodatečné doplnění práv pro užívání procedur
+GRANT ALL ON vyjimka TO XKONOP03;
+GRANT ALL ON vyjimka TO XRYBKA05;
+GRANT ALL ON vypsat_prosle TO XKONOP03;
+GRANT ALL ON vypsat_prosle TO XRYBKA05;
+
 
 
