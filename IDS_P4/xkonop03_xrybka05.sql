@@ -640,3 +640,60 @@ FROM materialized_view_baleni;
 
 
 
+-- ################################### PROCEDURY PRO 4. ODEVZDÁNÍ ##################################
+
+-- Smaze zaznami BALENI s datem spotreby po zadanem datu
+-- spolu s nima zaznami z POLOZKY a VYDANE_POLOZKY ktere jsou s nimi spojeny
+CREATE OR REPLACE PROCEDURE vyhodit_prosle ( datum_atr IN BALENI.Epirace%TYPE )
+IS
+CURSOR curs_baleni is
+    SELECT ID_baleni, ID_polozky as itemIDPolozka, Epirace FROM POLOZKA NATURAL JOIN BALENI;
+--tmp POLOZKA.ID_polozky%TYPE;
+    TMP VYDANA_POLOZKA.ID_polozky%TYPE;
+BEGIN
+
+/* */
+FOR item IN curs_baleni LOOP
+    --item.BALENI.Epirace < datum_atr
+
+    IF item.Epirace < datum_atr THEN
+        TMP := item.itemIDPolozka;
+        DELETE FROM VYDANA_POLOZKA WHERE ID_polozky = TMP;
+        DELETE FROM POLOZKA WHERE ID_polozky = TMP;
+    END IF;
+END LOOP;
+DELETE FROM BALENI WHERE Epirace < datum_atr;
+-- Bude tato vyjimka nekdy vyvolana?
+EXCEPTION
+WHEN NO_DATA_FOUND
+THEN DELETE FROM BALENI WHERE Epirace < datum_atr;
+END vyhodit_prosle;
+
+DECLARE
+    a DATE;
+    --:= DATE '4052-12-12' ;
+BEGIN
+    a := '12-12-1058';
+    --print "akf";
+    vyhodit_prosle(a);
+END;
+
+--Vyvola a zpracuje vyjimku
+CREATE OR REPLACE PROCEDURE vyjimka
+IS
+    moje_vyjimka EXCEPTION;
+BEGIN
+DBMS_OUTPUT.PUT_LINE('Je li vyvolana vyjimka, tak ');
+RAISE moje_vyjimka ;
+DBMS_OUTPUT.PUT_LINE( 'se nic nestane.');
+EXCEPTION
+WHEN moje_vyjimka THEN
+DBMS_OUTPUT.PUT_LINE('je zpracovana.');
+END;
+
+DECLARE
+BEGIN
+    vyjimka();
+END;
+
+
