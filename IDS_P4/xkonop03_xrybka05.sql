@@ -509,9 +509,7 @@ FROM (SELECT datum,
                NATURAL JOIN PRODEJ
                NATURAL JOIN VYDANA_POLOZKA
       WHERE datum = '12-DEC-22')
-GROUP BY datum
-ORDER BY datum;
-
+GROUP BY datum;
 
 SELECT *
 FROM TABLE (dbms_xplan.display);
@@ -537,8 +535,7 @@ FROM (SELECT datum,
                NATURAL JOIN PRODEJ
                NATURAL JOIN VYDANA_POLOZKA
       WHERE datum = '12-DEC-22')
-GROUP BY datum
-ORDER BY Datum;
+GROUP BY datum;
 
 SELECT *
 FROM TABLE (dbms_xplan.display);
@@ -711,7 +708,7 @@ DECLARE
     a DATE;
     --:= DATE '4052-12-12' ;
 BEGIN
-    a := '12-12-8958';
+    a := to_date('05-05-2025', 'DD-MM-YYYY');
     --print "akf";
     vypsat_prosle(a);
 END;
