@@ -653,22 +653,57 @@ CURSOR curs_baleni is
 BEGIN
 
 /* */
-FOR item IN curs_baleni LOOP
-    --item.BALENI.Epirace < datum_atr
+    FOR item IN curs_baleni LOOP
+        --item.BALENI.Epirace < datum_atr
 
-    IF item.Epirace < datum_atr THEN
-        TMP := item.itemIDPolozka;
-        DELETE FROM VYDANA_POLOZKA WHERE ID_polozky = TMP;
-        DELETE FROM POLOZKA WHERE ID_polozky = TMP;
-    END IF;
-END LOOP;
-DELETE FROM BALENI WHERE Epirace < datum_atr;
+        IF item.Epirace < datum_atr THEN
+            TMP := item.itemIDPolozka;
+            DELETE FROM VYDANA_POLOZKA WHERE ID_polozky = TMP;
+            DELETE FROM POLOZKA WHERE ID_polozky = TMP;
+        END IF;
+    END LOOP;
+    DECLARE
+        CURSOR OBJ IS
+        SELECT TVORI, ID_BALENI FROM OBJEDNAVKA LEFT OUTER JOIN BALENI ON BALENI.ID_OBJEDNAVKY = OBJEDNAVKA.TVORI;
+    BEGIN
+        FOR i IN OBJ LOOP
+            IF ( i.ID_BALENI IS NULL)
+            THEN
+                DELETE FROM OBJEDNAVKA WHERE TVORI = i.TVORI;
+            END IF;
+        END LOOP;
+    END;
+    DECLARE
+        CURSOR OBJ2 IS
+        SELECT  PRODEJ.ID_PRODEJ as ID_PRODEJ, ID_POLOZKY FROM PRODEJ LEFT JOIN POLOZKA ON PRODEJ.ID_PRODEJ = POLOZKA.ID_PRODEJ;
+    BEGIN
+        FOR J IN OBJ2 LOOP
+            IF ( J.ID_POLOZKY IS NULL)
+            THEN
+                DELETE FROM PRODEJ WHERE ID_PRODEJ = J.ID_PRODEJ;
+            END IF;
+        END LOOP;
+    END;
+    DECLARE
+        CURSOR OBJ3 IS
+        SELECT PREDPIS.ID_RECEPTU as ID_RECEPTU, ID_POLOZKY FROM PREDPIS LEFT JOIN VYDANA_POLOZKA ON PREDPIS.ID_RECEPTU = VYDANA_POLOZKA.ID_RECEPTU;
+    BEGIN
+        FOR K IN OBJ3 LOOP
+            IF ( K.ID_POLOZKY IS NULL)
+            THEN
+                DELETE FROM PREDPIS WHERE ID_RECEPTU = K.ID_RECEPTU;
+            END IF;
+        END LOOP;
+    END;
+
+    DELETE FROM BALENI WHERE Epirace < datum_atr;
 -- Bude tato vyjimka nekdy vyvolana?
-EXCEPTION
-WHEN NO_DATA_FOUND
-THEN DELETE FROM BALENI WHERE Epirace < datum_atr;
+--EXCEPTION
+--WHEN NO_DATA_FOUND
+--THEN DELETE FROM BALENI WHERE Epirace < datum_atr;
 END vyhodit_prosle;
 
+--prikalad volani
 DECLARE
     a DATE;
     --:= DATE '4052-12-12' ;
@@ -691,6 +726,7 @@ WHEN moje_vyjimka THEN
 DBMS_OUTPUT.PUT_LINE('je zpracovana.');
 END;
 
+--priklad volani
 DECLARE
 BEGIN
     vyjimka();
