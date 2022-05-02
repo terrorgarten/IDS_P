@@ -658,7 +658,7 @@ BEGIN
 
         IF item.Epirace < datum_atr THEN
             TMP := item.itemIDPolozka;
-            DBMS_OUTPUT.PUT_LINE(item.ID_baleni);
+            DBMS_OUTPUT.PUT_LINE(TMP);
             --DELETE FROM VYDANA_POLOZKA WHERE ID_polozky = TMP;
             --DELETE FROM POLOZKA WHERE ID_polozky = TMP;
         END IF;
